@@ -1,0 +1,72 @@
+### ============================================================
+### 进阶配方：Qwen2.5-3B-Instruct + QLoRA 4bit
+### 适用：8G 显存（需要额外装 bitsandbytes，Windows 上偶有兼容问题）
+### 显存实测占用：约 5G
+### 先决条件：pip install bitsandbytes
+### 用法：llamafactory-cli train configs/train_qlora_3b.yaml
+### ============================================================
+### 什么时候用这个而不是 1.5B：
+###   1.5B 跑通、拿到评测数字之后，想验证"模型更大效果是否更好"
+###   这才是一个真正值得写进简历的对照实验：显存约束下的模型规模取舍
+### ============================================================
+
+### ---- 模型 ----
+### 需要先下载：modelscope download --model Qwen/Qwen2.5-3B-Instruct --local_dir D:/ai/models/Qwen2.5-3B-Instruct
+model_name_or_path: D:/ai/models/Qwen2.5-3B-Instruct
+trust_remote_code: true
+
+### ---- 4bit 量化加载（QLoRA）----
+### 3B 半精度要 6.2G 权重，8G 卡放不下，必须量化到 4bit（约 1.9G）
+### 训练时用 bf16 计算，只有权重是压过的
+quantization_bit: 4
+quantization_method: bnb
+quantization_type: nf4
+double_quantization: true
+
+### ---- 方法：LoRA ----
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### 3B 的 hidden=2048、36 层、2 个 KV head（k/v 输出 256 维）
+### 7 个模块全贴：约 2,993 万可训练参数，占 3B 的 0.97%
+lora_target: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+
+### ---- 数据 ----
+dataset_dir: data
+dataset: rights_script_sft
+template: qwen
+cutoff_len: 1024
+max_samples: 100000
+overwrite_cache: true
+preprocessing_num_workers: 2
+
+### ---- 输出 ----
+output_dir: saves/qwen2.5-3b/lora/sft
+logging_steps: 5
+save_steps: 100
+save_total_limit: 2
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### ---- 训练超参 ----
+### 3B 显存更紧，batch 降到 1、用梯度累积补回来
+###   有效 batch = 1 × 8 = 8，步数 ≈ 306 × 8 ÷ 8 ≈ 306 步
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-4
+num_train_epochs: 8.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+gradient_checkpointing: true
+
+### ---- 验证集 ----
+val_size: 0.1
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 50

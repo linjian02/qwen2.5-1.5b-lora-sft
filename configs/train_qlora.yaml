@@ -1,0 +1,69 @@
+### ============================================================
+### Qwen2.5-7B-Instruct + QLoRA 4bit SFT
+### 用法：llamafactory-cli train configs/train_qlora.yaml
+### 显存需求：单卡 24G（3090 / 4090 / A10 / A5000 均可）
+### ============================================================
+
+### ---- 模型 ----
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+trust_remote_code: true
+
+### 4bit 量化加载（QLoRA）。training 时仍以 bf16 计算
+quantization_bit: 4
+quantization_method: bnb
+quantization_type: nf4
+double_quantization: true
+
+### ---- 方法：LoRA ----
+stage: sft
+do_train: true
+finetuning_type: lora
+
+### r=16 / alpha=32。alpha/r=2 是常见起点，等比放大等效于提高学习率影响力
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### 显式列出注入模块，便于在简历/面试中精确说明覆盖范围
+### q/k/v/o = Attention 四路投影；gate/up/down = MLP 三层
+### 注意 Qwen2.5 用 GQA（4 个 KV head），k_proj/v_proj 输出维度只有 512，不是 3584
+lora_target: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+
+### ---- 数据 ----
+dataset_dir: data
+dataset: rights_script_sft
+template: qwen
+cutoff_len: 2048
+max_samples: 100000
+overwrite_cache: true
+preprocessing_num_workers: 4
+
+### ---- 输出 ----
+output_dir: saves/qwen2.5-7b/lora/sft
+logging_steps: 5
+save_steps: 100
+save_total_limit: 2
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### ---- 训练超参 ----
+### 300 条数据下这两个值的算法：
+###   步数 = 条数 × epochs ÷ grad_accum = 300 × 6 ÷ 4 = 450 步
+### 低于 200 步基本学不进去；高于 1500 步在小数据上容易过拟合
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-4
+num_train_epochs: 6.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+gradient_checkpointing: true
+ddp_timeout: 180000000
+
+### ---- 验证集（只用于监控 loss，不参与训练） ----
+### 看 eval_loss 从第几轮开始回升，回升点就是过拟合起点，用它决定 epochs
+val_size: 0.1
+per_device_eval_batch_size: 1
+eval_strategy: steps
+eval_steps: 50

@@ -1,0 +1,14 @@
+### ============================================================
+### 把 LoRA adapter 合并回基座，导出完整权重
+### 用法：llamafactory-cli export configs/export_lora.yaml
+### 产出：saves/qwen2.5-7b/merged/  （可直接给 vLLM 加载）
+### ============================================================
+
+model_name_or_path: Qwen/Qwen2.5-7B-Instruct
+adapter_name_or_path: saves/qwen2.5-7b/lora/sft
+template: qwen
+finetuning_type: lora
+export_dir: saves/qwen2.5-7b/merged
+export_size: 2
+export_device: cpu
+export_legacy_format: false

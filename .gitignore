@@ -1,0 +1,35 @@
+# 训练产物与模型权重（体积大，不入库）
+saves/
+LLaMA-Factory/
+
+# 由数据构建脚本生成，跑一次即可重建
+data/train.json
+data/train_full.json
+
+# 本地素材（可能含非公开内容）
+data/raw/
+
+# 个人操作笔记与内部规划，不公开
+0_新手必读.md
+参考资料_24G服务器版.md
+
+# 评测中间产物：可由 5_答题 / 6_阅卷 重新生成
+out/pred_*.jsonl
+out/*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 环境变量与密钥
+.env
+*.key
+*.pem

@@ -1,0 +1,80 @@
+### ============================================================
+### 主力配方：Qwen2.5-1.5B-Instruct + LoRA（不量化）
+### 适用：RTX 3070 / 3060Ti / 4060 等 8G 显存消费卡（Windows 亦可）
+### 显存实测占用：约 4.5G（8G 卡留 1G 给系统显示后仍有余量）
+### 用法：llamafactory-cli train configs/train_lora_1.5b.yaml
+### ============================================================
+
+### ---- 模型 ----
+### 用本地路径而不是 Qwen/Qwen2.5-1.5B-Instruct，好处是不用每次联网校验
+model_name_or_path: D:/ai/models/Qwen2.5-1.5B-Instruct
+trust_remote_code: true
+
+### ---- 方法：LoRA ----
+### 注意：这里刻意不做 4bit 量化。
+### 1.5B 半精度只要 3.1G 权重，8G 卡装得下，省掉 bitsandbytes 这个最容易在
+### Windows 上装失败的依赖。这也是本配方对新手最友好的地方。
+stage: sft
+do_train: true
+finetuning_type: lora
+
+### ---- 补丁的"厚度"与"音量" ----
+### lora_rank=16：秩。越大能学的越多，也越容易死记硬背
+### lora_alpha=32：缩放。alpha/r=2 是常见起点
+### 想验证 r 的影响，用命令行覆盖即可（见 0_新手必读.md 第五节）
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+
+### ---- 补丁贴在哪 ----
+### q/k/v/o = Attention 的四路投影；gate/up/down = MLP 的三层
+### Qwen2.5 用 GQA（1.5B 只有 2 个 KV head），所以 k_proj/v_proj 输出只有 256 维，
+### 不是 1536。这一点算参数量时最容易算错，面试也最爱问。
+### 7 个模块全贴：约 1,846 万可训练参数，占 1.5B 的 1.2%
+lora_target: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+
+### ---- 数据 ----
+### dataset 这个名字对应 data/dataset_info.json 里的 key
+dataset_dir: data
+dataset: rights_script_sft
+template: qwen
+### 你的答案平均 220 字（约 300~400 token），1024 足够，且省显存
+cutoff_len: 1024
+max_samples: 100000
+overwrite_cache: true
+preprocessing_num_workers: 2
+
+### ---- 输出 ----
+output_dir: saves/qwen2.5-1.5b/lora/sft
+logging_steps: 5
+save_steps: 100
+save_total_limit: 2
+### 这一项会生成 training_loss.png，面试时要拿出来的那张图
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### ---- 训练超参 ----
+### 步数算法（重要，面试会问）：
+###   有效 batch = per_device_batch × grad_accum = 2 × 4 = 8
+###   步数 = 训练条数 × epochs ÷ 有效 batch ≈ 306 × 8 ÷ 8 ≈ 306 步
+### 经验区间：低于 200 步学不进去，高于 1500 步在小数据上容易过拟合
+per_device_train_batch_size: 2
+gradient_accumulation_steps: 4
+learning_rate: 2.0e-4
+num_train_epochs: 4.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+
+### 3070 是 Ampere 架构（sm_86），支持 bf16，比 fp16 更不容易出 NaN
+### 万一驱动报不支持，把下面这行改成 fp16: true
+bf16: true
+gradient_checkpointing: true
+
+### ---- 验证集 ----
+### 只用于监控 loss，不参与训练
+### eval_loss 从第几轮开始回升，就是过拟合起点，用它决定 epochs
+val_size: 0.1
+per_device_eval_batch_size: 2
+eval_strategy: steps
+eval_steps: 50

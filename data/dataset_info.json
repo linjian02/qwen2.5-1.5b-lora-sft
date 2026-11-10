@@ -1,0 +1,10 @@
+{
+  "rights_script_sft": {
+    "file_name": "train.json",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  }
+}

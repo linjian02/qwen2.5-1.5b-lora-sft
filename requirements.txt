@@ -1,0 +1,19 @@
+# Python 3.11
+# torch 需按 CUDA 版本单独安装，见下方注释
+# pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+
+transformers>=4.45,<4.50
+datasets>=2.20
+accelerate>=0.34
+peft>=0.12
+trl>=0.9
+sentencepiece>=0.2
+protobuf>=4.25
+pyyaml>=6.0
+numpy>=1.26
+
+# 训练框架（也可用 git clone 源码安装）
+llamafactory>=0.9.3
+
+# 可选：3B + 4bit 配方（configs/train_qlora_3b.yaml）需要，Windows 上易装失败
+# bitsandbytes>=0.43
